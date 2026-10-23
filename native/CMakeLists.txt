@@ -15,6 +15,11 @@ if (APPLE)
 endif()
 
 project(lxr VERSION 0.1.0 LANGUAGES C CXX)
+if (APPLE)
+    # clap-wrapper's macOS parts, compiled into our targets, are Objective-C++
+    enable_language(OBJC)
+    enable_language(OBJCXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
