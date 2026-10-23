@@ -22,6 +22,7 @@ typedef struct { volatile uint32_t FPDSCR; } FPU_Type;
 typedef struct { int dummy; } RNG_HandleTypeDef;
 typedef struct { int dummy; } TIM_HandleTypeDef;
 typedef struct { int dummy; } UART_HandleTypeDef;
+typedef struct { int dummy; } SPI_HandleTypeDef;
 typedef enum { HAL_OK = 0, HAL_ERROR } HAL_StatusTypeDef;
 typedef union { struct { uint32_t _r:28; uint32_t V:1; uint32_t C:1; uint32_t Z:1; uint32_t N:1; } b; uint32_t w; } APSR_Type;
 

@@ -14,6 +14,16 @@ const trunc = Math.trunc, floor = Math.floor, abs = Math.abs, min = Math.min, ma
 	pow = Math.pow, log2 = Math.log2, log = Math.log, exp = Math.exp, sqrt = Math.sqrt,
 	isnan = Number.isNaN, round = Math.round;
 function samplerate() { return __sr; }
+// list.store-like slots of number lists; lookup returns a copy
+class liststore {
+	constructor(o) {
+		this.max = o.maxlistsize;
+		this.slots = Array.from({ length: o.slotcount }, () => []);
+	}
+	store(i, l) { if (i >= 0 && i < this.slots.length) this.slots[i] = l.slice(0, this.max); }
+	lookup(i) { return i >= 0 && i < this.slots.length ? this.slots[i].slice() : []; }
+	clear() { this.slots = this.slots.map(() => []); }
+}
 `;
 
 function stripComments(src) {
@@ -61,7 +71,7 @@ export function transpile(src, message = false) {
 				decls.push(`var ${m[2]} = ${m[3]};`);
 				continue;
 			} else if (t.startsWith('@state')) {
-				let m = t.match(/^@state\s+(\w+)\s*=\s*new\s+Fixed(?:Double|Float|Int)Array\((\d+)\);$/);
+				let m = t.match(/^@state\s+(\w+)\s*=\s*new\s+Fixed(?:Double|Float|Int|Uint8|Uint16|Uint32)Array\((\d+)\);$/);
 				if (m) {
 					decls.push(`var ${m[1]} = new Float64Array(${m[2]});`);
 					continue;
@@ -75,8 +85,9 @@ export function transpile(src, message = false) {
 				continue;
 			} else mode = body;
 		}
-		// type annotations: "c: list", "x: number", "let i: Index"
+		// type annotations: "c: list", "x: number", "let i: Index", "function f(): list"
 		line = line.replace(/(\w)\s*:\s*(list|number|Int|Index|auto)\b/g, '$1');
+		line = line.replace(/\)\s*:\s*(list|number|Int|Index|auto)\s*\{/g, ') {');
 		mode.push(line);
 		for (const c of t) {
 			if (c === '{') depth++;
@@ -126,7 +137,9 @@ function messageModule(params, decls, funcs, body, src) {
 		...handlers.map((n) => `case ${n}: in${n}(v); break;`),
 		'default: throw new Error("no inlet " + i); } }',
 		'function __take() { const e = __events; __events = []; return e; }',
-		'return { set: __set, get: __get, input: __in, take: __take };',
+		'function __call(n, ...a) { return eval(n)(...a); }',
+		'function __setv(n, v) { eval(n + " = v"); }',
+		'return { set: __set, get: __get, input: __in, take: __take, call: __call, setv: __setv };',
 	].join('\n');
 	return { js, params, handlers };
 }

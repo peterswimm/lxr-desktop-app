@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Build lxr_ref: the firmware's own sound engine, compiled for the host.
+"""Build lxr_ref (the firmware's own sound engine) and seq_ref (its sequencer),
+compiled for the host.
 
 The DSP sources are copied from Core/ unchanged except for the float->uint32
 conversions listed in PATCHES. The Cortex-M7 converts those with a saturating
 instruction (negative -> 0, too large -> 0xFFFFFFFF) while x86 wraps, so they go
 through ARM_F2U() to keep the hardware's behaviour. Everything the engine needs
 from the rest of the firmware (HAL, sequencer, menu, UART) is stubbed in stubs.c.
+
+seq_ref is sequencer.c, EuklidGenerator.c and automationNode.c with seq_stubs.c and
+seq_driver.c; see SEQ_PATCHES for the two changes.
 """
 import shutil
 import subprocess
@@ -107,6 +111,45 @@ PATCHES = [
 ]
 
 
+SEQ_SOURCES = [
+    "Src/Soundengine/Sequencer/sequencer.c",
+    "Src/Soundengine/Sequencer/EuklidGenerator.c",
+    "Src/Soundengine/DSPAudio/automationNode.c",
+]
+
+SEQ_PATCHES = [
+    # The Euclid generator stores a length of 16 as 0, which the step code then uses as
+    # a divisor (x % 0 is x on the Cortex-M7, a crash on x86) and as length - 1 = 255
+    # when it looks up the previous step (an out-of-bounds read). The port keeps 16.
+    ("Src/Soundengine/Sequencer/EuklidGenerator.c", "\tif(len == 16)\n\t\tlen=0;\n", "", 1),
+    # On a pattern change the firmware restores the outgoing pattern from a backup taken
+    # when it was loaded from the SD card, dropping unsaved edits. The port keeps edits
+    # (the patterns are saved with the RNBO preset), so the reference does too.
+    ("Src/Soundengine/Sequencer/sequencer.c",
+     "\t\tseq_copyBackupBufferToPattern(seq_activePattern);\n", "", 1),
+]
+
+
+def build_seq():
+    texts = {s: (CORE / s).read_text() for s in SEQ_SOURCES}
+    for f, old, new, n in SEQ_PATCHES:
+        got = texts[f].count(old)
+        if got != n:
+            sys.exit(f"patch mismatch in {f}: {old!r} found {got}x, expected {n}")
+        texts[f] = texts[f].replace(old, new)
+    objs = []
+    for s, t in texts.items():
+        dst = BUILD / "src" / Path(s).name
+        dst.write_text(t)
+        objs.append(str(dst))
+    cmd = ["gcc", "-O2", "-std=gnu11", "-w", "-fno-strict-aliasing",
+           "-I", str(BUILD / "inc"),
+           *objs, str(HERE / "seq_stubs.c"), str(HERE / "seq_driver.c"),
+           "-lm", "-o", str(BUILD / "seq_ref")]
+    subprocess.run(cmd, check=True)
+    print(BUILD / "seq_ref")
+
+
 def main():
     if BUILD.exists():
         shutil.rmtree(BUILD)
@@ -141,6 +184,7 @@ def main():
            "-lm", "-o", str(BUILD / "lxr_ref")]
     subprocess.run(cmd, check=True)
     print(BUILD / "lxr_ref")
+    build_seq()
 
 
 if __name__ == "__main__":
