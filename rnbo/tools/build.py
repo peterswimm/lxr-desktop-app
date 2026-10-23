@@ -38,10 +38,6 @@ def num(x):
     return r[:-2] if r.endswith(".0") else r
 
 
-def js_str(s):
-    return json.dumps(s)
-
-
 # sequencer tracks (= trigger slots) and their parameter name prefixes
 SEQ_TRACKS = ["d1", "d2", "d3", "sn", "cy", "ch", "oh"]
 # demo pattern: four on the floor, backbeat, eighth note hats with accents on the beat
@@ -72,13 +68,12 @@ def seq_function():
 
 
 def param_block(defs):
+    # Codebox @params are attributes of the codebox~; the patch's [param] objects (with
+    # names for the enums) set them, see rnbo/tools/patch.py. Enums are plain indices here.
     lines = []
     for d in defs:
-        if d["enum"]:
-            opts = "{enum: [" + ", ".join(js_str(e) for e in d["enum"]) + "]}"
-        else:
-            opts = "{min: %d, max: %d}" % (d["min"], d["max"])
-        lines.append("@param(%s) %s = %d;" % (opts, d["name"], d["default"]))
+        hi = len(d["enum"]) - 1 if d["enum"] else d["max"]
+        lines.append("@param({min: %d, max: %d}) %s = %d;" % (d["min"], hi, d["name"], d["default"]))
     lines.append("@param({min: 20, max: 300}) bpm = 120;")
     for name, lo, hi, default, _code in seq_defs():
         lines.append("@param({min: %d, max: %d}) %s = %d;" % (lo, hi, name, default))

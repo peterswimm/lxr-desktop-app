@@ -1,9 +1,13 @@
 // Runs RNBO codebox~ code in Node, for testing.
 //
-// Translates the subset of the codebox language the LXR engine uses into JavaScript:
+// Translates the subset of the codebox language the LXR code uses into JavaScript:
 // @param / @state declarations, typed parameters (c: list), FixedDoubleArray, the
 // math built-ins and samplerate(). Top-level statements that are not declarations or
 // functions form the per-sample body, as in codebox~.
+//
+// instantiateMessage() runs a message-domain codebox: the body runs for messages to
+// the first inlet (listin1), functions named inN handle the other inlets, and every
+// assignment to outN / listoutN is recorded as an output event.
 
 const BUILTINS = `
 const trunc = Math.trunc, floor = Math.floor, abs = Math.abs, min = Math.min, max = Math.max,
@@ -33,8 +37,12 @@ function stripComments(src) {
 	return out;
 }
 
-export function transpile(src) {
+export function transpile(src, message = false) {
 	src = stripComments(src);
+	if (message) {
+		// outputs are events in a message codebox
+		src = src.replace(/\b(?:list)?out(\d+)\s*=(?!=)\s*([^;]+);/g, '__emit($1, $2);');
+	}
 	const params = [];
 	const decls = [];
 	const funcs = [];
@@ -75,6 +83,7 @@ export function transpile(src) {
 			else if (c === '}') depth--;
 		}
 	}
+	if (message) return messageModule(params, decls, funcs, body, src);
 	const byNumber = (a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, ''));
 	const ins = [...new Set(src.match(/\bin\d+\b/g) || [])].sort(byNumber);
 	const outs = [...new Set(src.match(/\bout\d+\b/g) || [])].sort(byNumber);
@@ -95,6 +104,37 @@ export function transpile(src) {
 		'return { dspsetup, perform: __perform, set: __set, get: __get, input: __in, output: __out };',
 	].join('\n');
 	return { js, params, ins, outs };
+}
+
+function messageModule(params, decls, funcs, body, src) {
+	const handlers = [...src.matchAll(/function in(\d+)\s*\(/g)].map((m) => Number(m[1]));
+	const js = [
+		BUILTINS,
+		'var listin1 = [];',
+		'var __events = [];',
+		'function __emit(n, v) { __events.push([n, Array.isArray(v) ? v.slice() : v]); }',
+		...decls,
+		...funcs,
+		'function __body() {',
+		...body,
+		'}',
+		'function __set(n, v) { switch (n) {',
+		...params.map((p) => `case ${JSON.stringify(p.name)}: ${p.name} = v; break;`),
+		'default: throw new Error("no param " + n); } }',
+		'function __get(n) { return eval(n); }',
+		'function __in(i, v) { if (i == 1) { listin1 = v; __body(); return; } switch (i) {',
+		...handlers.map((n) => `case ${n}: in${n}(v); break;`),
+		'default: throw new Error("no inlet " + i); } }',
+		'function __take() { const e = __events; __events = []; return e; }',
+		'return { set: __set, get: __get, input: __in, take: __take };',
+	].join('\n');
+	return { js, params, handlers };
+}
+
+export function instantiateMessage(src) {
+	const { js, params, handlers } = transpile(src, true);
+	const box = new Function('__sr', js)(44100);
+	return { box, params, handlers };
 }
 
 export function instantiate(src, sampleRate) {
