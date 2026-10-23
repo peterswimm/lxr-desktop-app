@@ -7,6 +7,9 @@ buttons: 64-step tracks, per-step velocity, probability, note, flam, micro timin
 parameter locks, shuffle, roll, patterns and chains. Every LXR sound parameter is an RNBO
 parameter (presets, parameter views).
 
+The same sources also build as CLAP and VST3 plugins for desktop hosts: see
+[native/README.md](../native/README.md).
+
 Both halves are line-by-line ports of the firmware, tested against the firmware's own C
 code compiled for the host:
 
@@ -174,6 +177,9 @@ node rnbo/test/run.mjs              # engine vs firmware audio, 52 scenarios
 node rnbo/test/seqref.mjs           # sequencer vs firmware events, 35 scenarios
 node rnbo/test/ui.mjs               # Move UI + sequencer + engine wired like the patch
 ```
+
+With `--native`, `run.mjs` and `seqref.mjs` test the C++ translation used by the
+plugins (`native/`) instead.
 
 Both firmware comparisons first compile the firmware's sources for the host with gcc
 (`test/ref/build.py`: `lxr_ref` for the sound engine, `seq_ref` for the sequencer, with

@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { instantiate } from './codebox.mjs';
+import { buildNative, NATIVE_BIN } from './native.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -19,6 +20,8 @@ const N = 64;
 
 const args = process.argv.slice(2);
 const wantWav = args.includes('--wav');
+// --native: check the C++ generated from the codebox code (native/) instead of the JS run
+const wantNative = args.includes('--native');
 const filter = args.find((a) => !a.startsWith('--'));
 
 execFileSync('python3', [join(ROOT, 'tools/build.py')], { stdio: 'inherit' });
@@ -397,6 +400,34 @@ function runC(name, events) {
 	return new Int16Array(b.buffer, b.byteOffset, b.length / 2);
 }
 
+// the same events through native/test/lxr_native
+function runNative(name, events) {
+	mkdirSync(TMP, { recursive: true });
+	const lines = [`sr ${SR}`];
+	let count = 0;
+	let autos = 0;
+	for (const e of events) {
+		if (e.auto) {
+			const [t, d1, v1, d2, v2] = e.auto;
+			autos++;
+			lines.push(`set auto_${META.tracks[t]} ${autos * 2 ** 32 + d1 + 256 * v1 + 65536 * d2 + 2 ** 24 * v2}`);
+		}
+		if (e.set) for (const [k, v] of Object.entries(e.set)) lines.push(`set ${k} ${v}`);
+		else if (e.bpm) lines.push(`set bpm ${e.bpm}`);
+		else if (e.trig) {
+			const [slot, vel, note] = e.trig;
+			count++;
+			lines.push(`in ${slot + 2} ${count * 16384 + note * 128 + vel}`);
+		} else if (e.render) lines.push(`render ${e.render}`);
+	}
+	const script = join(TMP, `${name}.native.txt`);
+	const raw = join(TMP, `${name}.native.raw`);
+	writeFileSync(script, lines.join('\n') + '\n');
+	execFileSync(NATIVE_BIN, ['engine', script, raw]);
+	const b = readFileSync(raw);
+	return new Int16Array(b.buffer, b.byteOffset, b.length / 2);
+}
+
 function runRnbo(events) {
 	const { dsp } = instantiate(SRC, SR);
 	const frames = [];
@@ -487,11 +518,12 @@ function wav(path, data, channels) {
 }
 
 
+if (wantNative) buildNative();
 let failed = 0;
 for (const sc of S) {
 	if (filter && !sc.name.includes(filter)) continue;
 	const ref = runC(sc.name, sc.events);
-	const got = runRnbo(sc.events);
+	const got = wantNative ? runNative(sc.name, sc.events) : runRnbo(sc.events);
 	const c = compare(ref, got);
 	const silent = c.sig === 0;
 	// The port must follow the firmware closely: tiny differences come from float vs
