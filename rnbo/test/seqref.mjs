@@ -8,12 +8,15 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { instantiateMessage } from './codebox.mjs';
+import { buildNative, NATIVE_BIN } from './native.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SEQ = readFileSync(join(HERE, '../src/lxr_seq.cb.js'), 'utf8');
 const OUT = join(HERE, 'out');
 const REF = join(HERE, 'ref/build/seq_ref');
-const filter = process.argv[2] || '';
+const filter = process.argv.slice(2).find((a) => !a.startsWith('--')) || '';
+// --native: check the C++ generated from the codebox code (native/) instead of the JS run
+const wantNative = process.argv.includes('--native');
 
 // the port's outputs, logged in the reference's event format
 const SHIM = `
@@ -356,6 +359,7 @@ for (let k = 1; k <= 8; k++) {
 
 // ---------------------------------------------------------------- run
 execFileSync('python3', [join(HERE, 'ref/build.py')], { stdio: ['ignore', 'ignore', 'inherit'] });
+if (wantNative) buildNative();
 mkdirSync(OUT, { recursive: true });
 let failed = 0;
 for (const s of scenarios) {
@@ -364,7 +368,9 @@ for (const s of scenarios) {
 	const file = join(OUT, `seq-${s.name}.txt`);
 	writeFileSync(file, script);
 	const ref = execFileSync(REF, [file], { maxBuffer: 1 << 28 }).toString().trim().split('\n').filter(Boolean);
-	const port = runPort(script);
+	const port = wantNative
+		? execFileSync(NATIVE_BIN, ['seq', file], { maxBuffer: 1 << 28 }).toString().trim().split('\n').filter(Boolean)
+		: runPort(script);
 	const n = Math.max(ref.length, port.length);
 	let first = -1;
 	for (let i = 0; i < n; i++) {
