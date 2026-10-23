@@ -738,7 +738,7 @@ public:
 	static constexpr double N = 64.0;
 	static constexpr double FS_REF = 44140.0;
 	static constexpr double TWO32 = 4294967296.0;
-	static constexpr double FLT_MAX = 3.4028234663852886e38;
+	static constexpr double FLT_MAX_ = 3.4028234663852886e38;
 	static constexpr double WTS = 11265.0;
 	static constexpr double TRL = 2205.0;
 	static constexpr double W_SINE = 0.0;
@@ -1249,8 +1249,8 @@ public:
 		double a = fr(h * h);
 		double num = fr(fr(fr(a + 105.0) * a) + 945.0);
 		double den = fr(fr(fr(fr(15.0 * a) + 420.0) * a) + 945.0);
-		if(den > FLT_MAX) {
-			if(num > FLT_MAX) scNan = 1.0;
+		if(den > FLT_MAX_) {
+			if(num > FLT_MAX_) scNan = 1.0;
 			return 0.0;
 		}
 		return fr(x * fr(num / den));
@@ -1338,7 +1338,7 @@ public:
 			if(scNan != 0.0) {
 				blown = 1.0;
 				SCR[dst + i] = 0.0;
-			} else if(std::fabs(s1) > FLT_MAX || std::fabs(s2) > FLT_MAX) {
+			} else if(std::fabs(s1) > FLT_MAX_ || std::fabs(s2) > FLT_MAX_) {
 				blown = 1.0;
 			}
 		}

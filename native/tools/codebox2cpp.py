@@ -47,7 +47,12 @@ CPP_RESERVED = {
     "new", "operator", "private", "protected", "public", "register", "short", "signed",
     "sizeof", "static", "struct", "template", "this", "throw", "try", "typedef", "typename",
     "union", "unsigned", "using", "virtual", "void", "volatile", "and", "or", "not", "xor",
+    # macros of the C standard headers (MSVC's <cmath> brings in <cfloat>)
+    "FLT_MAX", "FLT_MIN", "FLT_EPSILON", "DBL_MAX", "DBL_MIN", "DBL_EPSILON", "INT_MAX",
+    "INT_MIN", "UINT_MAX", "LONG_MAX", "LONG_MIN", "CHAR_BIT", "RAND_MAX", "EOF", "NULL",
+    "NAN", "INFINITY", "HUGE_VAL", "M_PI", "M_E", "M_SQRT2", "EXIT_SUCCESS", "EXIT_FAILURE",
 }
+RESERVED_RE = re.compile(r"\b(" + "|".join(sorted(CPP_RESERVED)) + r")\b")
 
 
 def strip_comments(src):
@@ -204,8 +209,8 @@ class Translator:
             self.externals[n] = 0 if empty else args
 
     def statement(self, line, list_vars):
-        # identifiers that are C++ keywords get a trailing underscore
-        s = re.sub(r"\b(" + "|".join(sorted(CPP_RESERVED)) + r")\b", r"\1_", line)
+        # identifiers that are C++ keywords or standard macros get a trailing underscore
+        s = RESERVED_RE.sub(r"\1_", line)
         # declarations
         def decl(m):
             name, ty, init = m.group(1), m.group(2), m.group(3)
@@ -299,7 +304,7 @@ class Translator:
 
         lines.append("\t// ---- constants")
         for name, expr in u.consts:
-            lines.append("\tstatic constexpr double %s = %s;" % (self.ident(name), doubles(expr)))
+            lines.append("\tstatic constexpr double %s = %s;" % (self.ident(name), doubles(RESERVED_RE.sub(r"\1_", expr))))
         lines.append("")
         lines.append("\t// ---- state (@state)")
         for name, kind, arg in u.states:
