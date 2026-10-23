@@ -34,7 +34,7 @@ for (const l of lines) {
 	if (c === 'param') dsp.set(byPar[a], +b);
 	else if (c === 'lfodest' || c === 'velodest')
 		dsp.set(VOICES[a] + (c === 'lfodest' ? '_lfo_dest' : '_vel_dest'), META.mod_targets.indexOf(+b));
-	else if (c === 'trig') dsp.input(+a + 1, ++count * 16384 + +d * 128 + +b);
+	else if (c === 'trig') dsp.input(+a + 2, ++count * 16384 + +d * 128 + +b);
 	else if (c === 'bpm') dsp.set('bpm', +a);
 	else if (c === 'render') for (let i = 0; i < 64; i++) dsp.perform();
 	else if (c === 'dumpall') {

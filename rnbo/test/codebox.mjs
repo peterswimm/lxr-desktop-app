@@ -75,8 +75,9 @@ export function transpile(src) {
 			else if (c === '}') depth--;
 		}
 	}
-	const ins = [...new Set(src.match(/\bin\d+\b/g) || [])].sort();
-	const outs = [...new Set(src.match(/\bout\d+\b/g) || [])].sort();
+	const byNumber = (a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, ''));
+	const ins = [...new Set(src.match(/\bin\d+\b/g) || [])].sort(byNumber);
+	const outs = [...new Set(src.match(/\bout\d+\b/g) || [])].sort(byNumber);
 	const js = [
 		BUILTINS,
 		`var ${[...ins, ...outs].map((n) => n + ' = 0').join(', ')};`,

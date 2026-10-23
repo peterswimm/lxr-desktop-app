@@ -5555,6 +5555,161 @@
   240,
   241
  ],
+ "seq_params": [
+  {
+   "name": "seq_d1_steps",
+   "min": 0,
+   "max": 65535,
+   "default": 4369
+  },
+  {
+   "name": "seq_d2_steps",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_d3_steps",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_sn_steps",
+   "min": 0,
+   "max": 65535,
+   "default": 4112
+  },
+  {
+   "name": "seq_cy_steps",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_ch_steps",
+   "min": 0,
+   "max": 65535,
+   "default": 21845
+  },
+  {
+   "name": "seq_oh_steps",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_d1_accents",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_d2_accents",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_d3_accents",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_sn_accents",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_cy_accents",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_ch_accents",
+   "min": 0,
+   "max": 65535,
+   "default": 4369
+  },
+  {
+   "name": "seq_oh_accents",
+   "min": 0,
+   "max": 65535,
+   "default": 0
+  },
+  {
+   "name": "seq_d1_length",
+   "min": 1,
+   "max": 16,
+   "default": 16
+  },
+  {
+   "name": "seq_d2_length",
+   "min": 1,
+   "max": 16,
+   "default": 16
+  },
+  {
+   "name": "seq_d3_length",
+   "min": 1,
+   "max": 16,
+   "default": 16
+  },
+  {
+   "name": "seq_sn_length",
+   "min": 1,
+   "max": 16,
+   "default": 16
+  },
+  {
+   "name": "seq_cy_length",
+   "min": 1,
+   "max": 16,
+   "default": 16
+  },
+  {
+   "name": "seq_ch_length",
+   "min": 1,
+   "max": 16,
+   "default": 16
+  },
+  {
+   "name": "seq_oh_length",
+   "min": 1,
+   "max": 16,
+   "default": 16
+  },
+  {
+   "name": "seq_swing",
+   "min": 0,
+   "max": 127,
+   "default": 0
+  },
+  {
+   "name": "seq_velocity",
+   "min": 1,
+   "max": 127,
+   "default": 100
+  },
+  {
+   "name": "seq_accent_velocity",
+   "min": 1,
+   "max": 127,
+   "default": 127
+  }
+ ],
+ "seq_tracks": [
+  "d1",
+  "d2",
+  "d3",
+  "sn",
+  "cy",
+  "ch",
+  "oh"
+ ],
  "scan_order": [
   149,
   167,

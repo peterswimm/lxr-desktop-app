@@ -359,7 +359,7 @@ function runRnbo(events) {
 			const [slot, vel, note] = e.trig;
 			count++;
 			trig[slot] = count * 16384 + note * 128 + vel;
-			dsp.input(slot + 1, trig[slot]);
+			dsp.input(slot + 2, trig[slot]);
 		} else if (e.render) {
 			for (let i = 0; i < e.render * N; i++) {
 				dsp.perform();
