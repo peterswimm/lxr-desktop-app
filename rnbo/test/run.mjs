@@ -69,6 +69,10 @@ function scenario(name, build, opts = {}) {
 			ev.push({ trig: [slot, vel, note] });
 			ev.push({ render: blocks });
 		},
+		// a sequenced step's parameter locks (automation codes, 255 = none)
+		auto(slot, d1, v1, d2 = 255, v2 = 0) {
+			ev.push({ auto: [slot, d1, v1, d2, v2] });
+		},
 	};
 	build(api);
 	S.push({ name, events: ev, ...opts });
@@ -299,6 +303,33 @@ for (let seed = 1; seed <= 12; seed++) {
 	});
 }
 
+// parameter locks: what the engine's automation nodes do must equal the firmware
+// setting those parameters (CortexParser.c: codes below 128 are the parameter + 1)
+const lockCode = (name) => (PARAMS[name].par < 127 ? PARAMS[name].par + 1 : PARAMS[name].par);
+scenario('locks', (s) => {
+	s.auto(0, lockCode('d1_decay'), 20, lockCode('d1_coarse'), 90);
+	s.hit(0, 40);
+	s.auto(0, lockCode('d1_cutoff'), 30, 255, 0);
+	s.hit(0, 40);
+	s.set({ d1_cutoff: 100 }); // a knob turned while locked wins, and becomes the value to go back to
+	s.render(10);
+	s.auto(0, 255, 0, 255, 0);
+	s.hit(0, 40);
+	s.auto(3, lockCode('sn_noise_freq'), 127, lockCode('sn_filter_drive'), 90);
+	s.hit(3, 60);
+	s.auto(3, lockCode('sn_filter_drive'), 10, 0, 0); // code 0: a destination that does nothing
+	s.hit(3, 60);
+	s.auto(5, lockCode('hh_decay_closed'), 3, lockCode('fx_p1'), 120);
+	s.hit(5, 30);
+	s.auto(6, lockCode('hh_decay_closed'), 120, lockCode('hh_trans_freq'), 7);
+	s.hit(6, 60);
+	s.auto(5, 255, 0, 255, 0);
+	s.hit(5, 60);
+	s.auto(2, lockCode('d3_pan'), 0, lockCode('d3_pwm'), 127);
+	s.auto(2, lockCode('d3_pan'), 127, lockCode('d3_pwm'), 0);
+	s.hit(2, 60);
+});
+
 // extra scenarios from a JSON file: [{ "name": ..., "events": [...] }]
 if (process.env.LXR_SCENARIOS) S.push(...JSON.parse(readFileSync(process.env.LXR_SCENARIOS, 'utf8')));
 
@@ -313,7 +344,15 @@ function initKitValues() {
 // engine does on its first block. Parameters are always sent in scanParams() order.
 function cScript(events) {
 	const lines = [];
+	const current = {}; // parameter values as set, by PAR
+	const nodes = Array(14).fill(255);
+	const lock = (code, val) => {
+		const par = code <= 127 ? code - 1 : code;
+		if (par < 0 || !BY_PAR[par]) return;
+		lines.push(`param ${par} ${val < 0 ? current[par] : val}`);
+	};
 	const emit = (values) => {
+		for (const [n, v] of Object.entries(values)) current[PARAMS[n].par] = v;
 		const pars = new Set(Object.keys(values).map((n) => PARAMS[n].par));
 		for (const par of SCAN) {
 			if (!pars.has(par)) continue;
@@ -333,6 +372,17 @@ function cScript(events) {
 		else if (e.trig) lines.push(`trig ${e.trig.join(' ')}`);
 		else if (e.render) lines.push(`render ${e.render}`);
 		else if (e.bpm) lines.push(`bpm ${e.bpm}`);
+		else if (e.auto) {
+			// automationNode.c: both nodes go back to their parameter's value, then the new values
+			const [t, d1, v1, d2, v2] = e.auto;
+			[d1, d2].forEach((d, k) => {
+				if (nodes[2 * t + k] !== 255) lock(nodes[2 * t + k], -1);
+				nodes[2 * t + k] = d;
+			});
+			[v1, v2].forEach((v, k) => {
+				if (nodes[2 * t + k] !== 255) lock(nodes[2 * t + k], v);
+			});
+		}
 	}
 	return lines.join('\n') + '\n';
 }
@@ -352,7 +402,13 @@ function runRnbo(events) {
 	const frames = [];
 	let count = 0;
 	const trig = new Array(8).fill(0);
+	let autos = 0;
 	for (const e of events) {
+		if (e.auto) {
+			const [t, d1, v1, d2, v2] = e.auto;
+			autos++;
+			dsp.set(`auto_${META.tracks[t]}`, autos * 2 ** 32 + d1 + 256 * v1 + 65536 * d2 + 2 ** 24 * v2);
+		}
 		if (e.set) for (const [k, v] of Object.entries(e.set)) dsp.set(k, v);
 		else if (e.bpm) dsp.set('bpm', e.bpm);
 		else if (e.trig) {

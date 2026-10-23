@@ -74,7 +74,7 @@ const MIDI_STOP = 252;
 @state masterStepCnt = 0;
 @state rollRate = 1;
 @state rollState = 0;
-@state tempo = 120;
+@state seqTempo = 120;
 @state lastTick = 0;
 @state isStepShuffled = 0;
 @state deltaT = 0;
@@ -132,8 +132,8 @@ function withBit(mask, i, on) {
 }
 
 // bits [shift, shift + bits) of a non-negative integer
-function field(w, shift, bits) {
-	return imod(floor(w / pow(2, shift)), pow(2, bits));
+function field(w, lsb, bits) {
+	return imod(floor(w / pow(2, lsb)), pow(2, bits));
 }
 
 // GetRngValue(): the hardware RNG, replaced by an LCG
@@ -144,8 +144,8 @@ function rngValue() {
 }
 
 // ---------------------------------------------------------------- pattern storage
-function stepWordA(volume, prob, note, flam, shift) {
-	return volume + 256 * prob + 65536 * note + 16777216 * flam + 268435456 * shift;
+function stepWordA(volume, prob, note, flam, shft) {
+	return volume + 256 * prob + 65536 * note + 16777216 * flam + 268435456 * shft;
 }
 
 function stepWordB(p1Nr, p1Val, p2Nr, p2Val) {
@@ -278,7 +278,7 @@ function setStepField(p, t, s, f, v) {
 	let prob = field(a, 8, 8);
 	let note = field(a, 16, 8);
 	let flam = field(a, 24, 4);
-	let shift = field(a, 28, 4);
+	let shft = field(a, 28, 4);
 	let p1n = field(b, 0, 8);
 	let p1v = field(b, 8, 8);
 	let p2n = field(b, 16, 8);
@@ -287,12 +287,12 @@ function setStepField(p, t, s, f, v) {
 	else if (f == 1) prob = v;
 	else if (f == 2) note = v;
 	else if (f == 3) flam = v;
-	else if (f == 4) shift = v;
+	else if (f == 4) shft = v;
 	else if (f == 5) p1n = v;
 	else if (f == 6) p1v = v;
 	else if (f == 7) p2n = v;
 	else if (f == 8) p2v = v;
-	d[5 + s] = stepWordA(vol, prob, note, flam, shift);
+	d[5 + s] = stepWordA(vol, prob, note, flam, shft);
 	d[69 + s] = stepWordB(p1n, p1v, p2n, p2v);
 	storeTrack(p, t, d);
 }
@@ -308,9 +308,9 @@ function stepField(p, t, s, f) {
 }
 
 // all fields at once, raw (volume with its active bit)
-function setStepRaw(p, t, s, volume, prob, note, flam, shift, p1Nr, p1Val, p2Nr, p2Val) {
+function setStepRaw(p, t, s, volume, prob, note, flam, shft, p1Nr, p1Val, p2Nr, p2Val) {
 	let d = trackData(p, t);
-	d[5 + s] = stepWordA(volume, prob, note, flam, shift);
+	d[5 + s] = stepWordA(volume, prob, note, flam, shft);
 	d[69 + s] = stepWordB(p1Nr, p1Val, p2Nr, p2Val);
 	storeTrack(p, t, d);
 }
@@ -367,7 +367,7 @@ function sendRealtime(status) {
 
 // ---------------------------------------------------------------- tempo and shuffle
 function setBpm(bpm) {
-	tempo = bpm;
+	seqTempo = bpm;
 }
 
 function setShuffle(v) {
@@ -458,9 +458,9 @@ function nextStep() {
 	let longest = getLongestTrack();
 	let seqlen = trackLen(activePattern, longest);
 	if (seqlen == 0) seqlen = 16;
-	let next = stepIndex[longest] + 1;
-	let masterStepPos = next;
-	if (imod(next, 64) == 0 || next >= seqlen) masterStepPos = 0;
+	let nxt = stepIndex[longest] + 1;
+	let masterStepPos = nxt;
+	if (imod(nxt, 64) == 0 || nxt >= seqlen) masterStepPos = 0;
 
 	if (masterStepPos == 0) {
 		if (activePattern == pendingPattern) {
@@ -523,9 +523,9 @@ function flamPattern(flam) {
 
 // seq_getShiftFlamPattern(): the 24 tick pattern a step contributes to the current
 // step; stepPos 0 = previous step, 1 = current, 2 = next
-function shiftFlamPattern(d: list, track, step, stepPos) {
-	if (mainStepOf(d, step) == 0) return 0;
-	let a = d[5 + step];
+function shiftFlamPattern(d: list, track, stp, stepPos) {
+	if (mainStepOf(d, stp) == 0) return 0;
+	let a = d[5 + stp];
 	let prob = field(a, 8, 8);
 	let rnd = rndCur[track];
 	if (stepPos == 0) rnd = rndPrev[track];
@@ -533,19 +533,19 @@ function shiftFlamPattern(d: list, track, step, stepPos) {
 	if (rnd > prob) return 0;
 
 	let pattern = flamPattern(field(a, 24, 4));
-	let shift = shiftValue(field(a, 28, 4)) * 3;
-	if (shift == 0) {
+	let sh = shiftValue(field(a, 28, 4)) * 3;
+	if (sh == 0) {
 		if (stepPos == 1) return pattern;
 		return 0;
 	}
-	if (shift > 0) {
-		if (stepPos == 0) return imod(pattern * pow(2, 24 - shift), 16777216);
-		if (stepPos == 1) return floor(pattern / pow(2, shift));
+	if (sh > 0) {
+		if (stepPos == 0) return imod(pattern * pow(2, 24 - sh), 16777216);
+		if (stepPos == 1) return floor(pattern / pow(2, sh));
 		return 0;
 	}
-	shift = -shift;
-	if (stepPos == 1) return imod(pattern * pow(2, shift), 16777216);
-	if (stepPos == 2) return floor(pattern / pow(2, 24 - shift));
+	sh = -sh;
+	if (stepPos == 1) return imod(pattern * pow(2, sh), 16777216);
+	if (stepPos == 2) return floor(pattern / pow(2, 24 - sh));
 	return 0;
 }
 
@@ -559,25 +559,25 @@ function processFlam(idx) {
 	for (let track = 0; track < NUM_TRACKS; track++) {
 		if (bit(mutedTracks, track) != 0) continue;
 		let d = trackData(activePattern, track);
-		let length = d[0];
-		let currentStep = stepIndex[track];
-		let nextStep = imod(currentStep + 1, length);
-		let prevStep = length - 1;
-		if (currentStep != 0) prevStep = currentStep - 1;
+		let tlen = d[0];
+		let curStep = stepIndex[track];
+		let nxtStep = imod(curStep + 1, tlen);
+		let prvStep = tlen - 1;
+		if (curStep != 0) prvStep = curStep - 1;
 
-		let currentActive = bit(shiftFlamPattern(d, track, currentStep, 1), 23 - idx);
-		let nextActive = bit(shiftFlamPattern(d, track, nextStep, 2), 23 - idx);
-		let prevActive = bit(shiftFlamPattern(d, track, prevStep, 0), 23 - idx);
+		let currentActive = bit(shiftFlamPattern(d, track, curStep, 1), 23 - idx);
+		let nextActive = bit(shiftFlamPattern(d, track, nxtStep, 2), 23 - idx);
+		let prevActive = bit(shiftFlamPattern(d, track, prvStep, 0), 23 - idx);
 
 		let play = -1;
 		if (nextActive != 0) {
 			chokeNext = 1;
-			play = nextStep;
+			play = nxtStep;
 		} else if (currentActive != 0 && chokeNext == 0) {
 			chokeCurrent = 1;
-			play = currentStep;
+			play = curStep;
 		} else if (prevActive != 0 && chokeNext == 0 && chokeCurrent == 0) {
-			play = prevStep;
+			play = prvStep;
 		}
 		if (play >= 0) {
 			lastWasNoteOn[track] = 1;
@@ -597,11 +597,11 @@ function seqTickOnce() {
 		nextStep();
 		return 1;
 	}
-	let elapsed = systick - lastTick;
-	if (elapsed < deltaT) return 0;
-	let rest = fr(elapsed - deltaT);
+	let el = systick - lastTick;
+	if (el < deltaT) return 0;
+	let rest = fr(el - deltaT);
 	lastTick = systick;
-	calcDeltaT(tempo, isStepShuffled);
+	calcDeltaT(seqTempo, isStepShuffled);
 	isStepShuffled = 0;
 	deltaT = fr(deltaT - rest);
 	if (prescaleCounter == 0) nextStep();
@@ -681,13 +681,13 @@ function setRoll(voice, on) {
 }
 
 // 0 one shot, 1 1/1, 2 1/2, 3 1/4, 4 1/8, 5 1/16
-function setRollRate(rate) {
+function setRollRate(rr) {
 	let r = 0;
-	if (rate == 0) r = 254;
-	else if (rate == 1) r = 15;
-	else if (rate == 2) r = 7;
-	else if (rate == 3) r = 3;
-	else if (rate == 4) r = 1;
+	if (rr == 0) r = 254;
+	else if (rr == 1) r = 15;
+	else if (rr == 2) r = 7;
+	else if (rr == 3) r = 3;
+	else if (rr == 4) r = 1;
 	rollRate = r + 1;
 }
 
@@ -720,9 +720,9 @@ function setActiveAutomationTrack(lane) {
 	activeAutomTrack = lane;
 }
 
-function armAutomationStep(step, track, isArmed) {
+function armAutomationStep(stp, track, isArmed) {
 	if (isArmed != 0) {
-		armedStep = step;
+		armedStep = stp;
 		armedTrack = track;
 	} else {
 		armedStep = -1;
@@ -740,10 +740,10 @@ function isAutomationStepArmed() {
 // step.
 function recordAutomation(voice, dest, value) {
 	if (recordActive != 0) {
-		let step = stepIndex[voice];
-		if (isMainStepActive(voice, step, activePattern) != 0) {
-			setStepField(activePattern, voice, step, 5 + 2 * activeAutomTrack, dest);
-			setStepField(activePattern, voice, step, 6 + 2 * activeAutomTrack, value);
+		let stp = stepIndex[voice];
+		if (isMainStepActive(voice, stp, activePattern) != 0) {
+			setStepField(activePattern, voice, stp, 5 + 2 * activeAutomTrack, dest);
+			setStepField(activePattern, voice, stp, 6 + 2 * activeAutomTrack, value);
 		}
 	}
 	if (armedStep != -1 && armedTrack != -1) {
@@ -818,14 +818,14 @@ function euObjSize(group) {
 
 // euklid_calcRecursive(), as a loop (it only calls itself at the end); groups are
 // uint16 as in the firmware
-function euCalc(length0, steps0, group10, group20) {
-	let length = length0;
+function euCalc(len0, steps0, group10, group20) {
+	let elen = len0;
 	let steps = steps0;
 	let group1 = group10;
 	let group2 = group20;
-	while (true) {
+	for (let iteration = 0; iteration < 64; iteration++) {
 		let remainder = 0;
-		if (steps != 0) remainder = imod(length, steps);
+		if (steps != 0) remainder = imod(elen, steps);
 		if (euNextCnt1 == 0) euNextCnt1 = steps;
 		let objectCnt1 = euNextCnt1;
 		let objSize1 = euObjSize(group1);
@@ -854,31 +854,31 @@ function euCalc(length0, steps0, group10, group20) {
 			if (bit(group2, i) != 0) group1 = withBit(group1, i, 1);
 		}
 		if (objCnt2 - objectCnt1 <= 0) group2 = originalGroup1;
-		length = steps;
+		elen = steps;
 		steps = remainder;
 	}
 }
 
 function euGenerate(t, p) {
-	let length = euLen[t];
+	let elen = euLen[t];
 	let steps = euSteps[t];
 	if (steps == 0) steps = 1;
 	euNextCnt1 = 0;
-	euOriginalLength = length;
+	euOriginalLength = elen;
 	for (let i = 0; i < 64; i++) euBuf[i] = 0;
-	euCalc(length, steps, 1, 0);
+	euCalc(elen, steps, 1, 0);
 	// euklid_rotatePattern()
 	let amount = euRot[t];
-	if (amount != 0 && length != 1 && imod(amount, length) != 0) {
-		amount = imod(amount, length);
+	if (amount != 0 && elen != 1 && imod(amount, elen) != 0) {
+		amount = imod(amount, elen);
 		let tmp: list = [];
 		for (let i = 0; i < 64; i++) tmp.push(euBuf[i]);
 		// (q << amount) | (q >> (length - amount)), then only the first length bits
 		for (let i = 0; i < 64; i++) {
 			let v = 0;
 			if (i >= amount && tmp[i - amount] != 0) v = 1;
-			if (i + length - amount < 64 && tmp[i + length - amount] != 0) v = 1;
-			if (i >= length) v = 0;
+			if (i + elen - amount < 64 && tmp[i + elen - amount] != 0) v = 1;
+			if (i >= elen) v = 0;
 			euBuf[i] = v;
 		}
 	}
