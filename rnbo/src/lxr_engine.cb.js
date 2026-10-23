@@ -1358,7 +1358,16 @@ function dlRead(pos, frac, region) {
 	if (dlType != 0) mask = 16384;
 	let p2 = pos + 1;
 	p2 = p2 - mask * floor(p2 / mask);
-	return i16(fr(flerp(DLB[region + pos], DLB[region + p2], frac) * 32767));
+	return i16(fr(flerp(dlAt(region + pos), dlAt(region + p2), frac) * 32767));
+}
+
+// The firmware indexes FX_BUFFER without a bound check. After the delay switches from
+// normal to ping-pong, the old positions point up to half a buffer past its end for a
+// moment; there the hardware reads and writes whatever memory follows. Here such
+// reads give 0 and such writes are dropped.
+function dlAt(i) {
+	if (i < 0 || i >= 32768) return 0;
+	return DLB[i];
 }
 
 function dlAdvance(pos) {
@@ -1553,7 +1562,7 @@ function delayPingPong(ca, cb, stereo) {
 		outL = i16(dlToneB);
 		dlTone2B = fr(dlTone2B + dlToneR * fr(outR - dlTone2B));
 		outR = i16(dlTone2B);
-		DLB[16383 + dlWrite] = f16(min(1, max(-1, fr(sat16(l + i16(fr(outL * dlFb))) / 32767))));
+		if (dlWrite < 16385) DLB[16383 + dlWrite] = f16(min(1, max(-1, fr(sat16(l + i16(fr(outL * dlFb))) / 32767))));
 		DLB[dlWrite] = f16(min(1, max(-1, fr(sat16(rr + i16(fr(outR * dlFb))) / 32767))));
 		dlWrite = dlAdvance(dlWrite);
 		OUTB[ca + i] = sat16(OUTB[ca + i] + sat16(l + ssat(fr((outL - l) * fxDryWet))));
