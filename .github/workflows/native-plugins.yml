@@ -1,0 +1,64 @@
+name: Native plugins
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native/**'
+      - 'rnbo/src/**'
+      - 'rnbo/tools/**'
+      - 'rnbo/test/**'
+      - '.github/workflows/native-plugins.yml'
+  pull_request:
+    paths:
+      - 'native/**'
+      - 'rnbo/src/**'
+      - 'rnbo/tools/**'
+      - 'rnbo/test/**'
+      - '.github/workflows/native-plugins.yml'
+  workflow_dispatch:
+
+jobs:
+  firmware:
+    name: Native port matches the firmware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Generated sources are up to date
+        run: |
+          python3 rnbo/tools/build.py
+          python3 native/tools/codebox2cpp.py
+          git diff --exit-code rnbo/generated native/generated
+      - name: Engine against the firmware
+        run: node rnbo/test/run.mjs --native
+      - name: Sequencer against the firmware
+        run: node rnbo/test/seqref.mjs --native
+
+  plugins:
+    name: CLAP and VST3 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S native -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Host test
+        if: runner.os != 'Windows'
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: clap-validator
+        if: runner.os == 'Linux'
+        run: |
+          cargo install --locked --git https://github.com/free-audio/clap-validator clap-validator
+          clap-validator validate build/plugins/LXR.clap
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LXR-${{ runner.os }}
+          path: build/plugins
