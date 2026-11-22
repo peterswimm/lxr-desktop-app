@@ -79,7 +79,15 @@ jobs:
         run: |
           cargo install --locked --git https://github.com/free-audio/clap-validator clap-validator
           clap-validator validate build/plugins/LXR.clap
+      # Forgejo's artifact store takes upload-artifact v3 only (v4 stops with
+      # GHESNotSupportedError), and GitHub no longer takes v3.
       - uses: actions/upload-artifact@v4
+        if: github.server_url == 'https://github.com'
+        with:
+          name: LXR-${{ runner.os }}
+          path: build/plugins
+      - uses: actions/upload-artifact@v3
+        if: github.server_url != 'https://github.com'
         with:
           name: LXR-${{ runner.os }}
           path: build/plugins
