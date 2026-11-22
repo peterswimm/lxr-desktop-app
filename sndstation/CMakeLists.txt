@@ -73,6 +73,14 @@ if (LXR_SNDSTATION_TESTS)
     add_test(NAME lxr-sndstation-no-fonts
             COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:lxr-sndstation> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/no-fonts
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/no-fonts.cmake)
+    # quitting ends the app with 0 and its session saved, not in std::terminate: on
+    # Linux, where the platform's MIDI runs a thread of its own (GNU timeout sends the quit)
+    find_program(LXR_TIMEOUT timeout)
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND LXR_TIMEOUT)
+        add_test(NAME lxr-sndstation-quit
+                COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:lxr-sndstation> -DDIR=${CMAKE_CURRENT_BINARY_DIR}/quit
+                        -DTIMEOUT=${LXR_TIMEOUT} -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/quit.cmake)
+    endif()
 endif()
 
 include(GNUInstallDirs)

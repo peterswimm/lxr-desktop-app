@@ -237,6 +237,9 @@ int main(int argc, char** argv) {
 
 	midi::listen(nullptr);
 	midiOut.follow(false);
+	// The SDK's MIDI thread (ALSA's, on a unit) runs until stop(): left running, it is
+	// still joinable when the program ends, and that ends it in std::terminate.
+	midi::stop();
 	out.close();
 	// the audio is closed: the instrument is this thread's again
 	engine.collect();
