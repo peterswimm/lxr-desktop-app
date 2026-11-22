@@ -28,8 +28,8 @@ grid and the handheld's buttons: see [On sndstation handhelds](#on-sndstation-ha
 
 ## Building
 
-You need Git, CMake 3.21 or newer and a C++17 compiler (GCC, Clang, Xcode or Visual
-Studio).
+You need Git, CMake 3.27 or newer (clap-wrapper 0.17 needs it) and a C++17 compiler
+(GCC, Clang, Xcode or Visual Studio).
 
 ```
 cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release
@@ -55,8 +55,9 @@ Copy the plugins where your host looks for them:
 | macOS | `~/Library/Audio/Plug-Ins/CLAP` | `~/Library/Audio/Plug-Ins/VST3` |
 | Windows | `C:\Program Files\Common Files\CLAP` | `C:\Program Files\Common Files\VST3` |
 
-The GitHub workflow `.github/workflows/native-plugins.yml` builds all three systems and
-keeps the results as downloadable artifacts of each run.
+The workflow `.github/workflows/native-plugins.yml` builds all three systems on GitHub and
+keeps the results as downloadable artifacts of each run. On a Forgejo with Linux runners
+only, it builds and checks the Linux plugins and leaves macOS and Windows to GitHub.
 
 ## Playing it
 
