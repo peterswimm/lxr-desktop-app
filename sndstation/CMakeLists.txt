@@ -7,7 +7,7 @@
 # The sndstation platform is built from its source tree alongside, as every sndstation
 # app is (its examples/hello). On a handheld, or for one, see README.md.
 cmake_minimum_required(VERSION 3.16)
-project(lxr-sndstation VERSION 0.1.0 LANGUAGES C CXX)
+project(lxr-sndstation VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
