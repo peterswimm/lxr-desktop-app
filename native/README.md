@@ -55,8 +55,9 @@ Copy the plugins where your host looks for them:
 | macOS | `~/Library/Audio/Plug-Ins/CLAP` | `~/Library/Audio/Plug-Ins/VST3` |
 | Windows | `C:\Program Files\Common Files\CLAP` | `C:\Program Files\Common Files\VST3` |
 
-The GitHub workflow `.github/workflows/native-plugins.yml` builds all three systems and
-keeps the results as downloadable artifacts of each run.
+The workflow `.github/workflows/native-plugins.yml` builds all three systems on GitHub and
+keeps the results as downloadable artifacts of each run. On a Forgejo with Linux runners
+only, it builds and checks the Linux plugins and leaves macOS and Windows to GitHub.
 
 ## Playing it
 
