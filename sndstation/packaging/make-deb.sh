@@ -11,9 +11,10 @@
 #       --sndstation-dir DIR  the sndstation tree to build against (with its submodules)
 #       --build-dir DIR       where to build (default: sndstation/build-deb)
 #       --out DIR             where the .deb goes (default: sndstation/dist)
-#       --revision R          the package revision (default: when sndstation/ or
-#                             native/ last changed, UTC YYYYMMDDHHMM, +local when
-#                             uncommitted; 1 out of git)
+#       --revision R          the package revision: rebuilds of one version
+#                             (default: 1). "auto" is when sndstation/ or
+#                             native/ last changed, UTC YYYYMMDDHHMM, +local
+#                             when uncommitted, for builds between versions
 #       --needs-sndstation V  the oldest sndstation release it depends on
 #                             (default: 0.15.1)
 #       --no-tests            skip the tests
@@ -37,7 +38,7 @@ PKG=lxr-sndstation
 sndstation_dir=""
 build_dir=build-deb
 out_dir=dist
-revision=auto
+revision=1
 # the oldest platform it is checked against: 0.15.1, the release on the units
 # (2026-11-22), whose config/ differs from 0.16.0's in comments only
 needs=0.15.1
@@ -86,7 +87,10 @@ if [ "$revision" = auto ]; then
         revision="$revision+local"
     fi
 fi
-full="$version-$revision"
+# A beta is semver's X.Y.Z-beta.N. In a .deb that is written X.Y.Z~beta.N,
+# since apt sorts "~" below the release. Empty for a release.
+prerelease=beta.1
+full="$version${prerelease:+~$prerelease}-$revision"
 plat_version=$(sed -n 's/^set(SNDSTATION_VERSION \([0-9.]*\)).*/\1/p' "$sndstation_dir/CMakeLists.txt")
 [ -n "$plat_version" ] || die "could not read SNDSTATION_VERSION from $sndstation_dir/CMakeLists.txt"
 
@@ -158,6 +162,7 @@ Architecture: $arch
 Depends: $depends
 Maintainer: $maintainer
 Installed-Size: $size
+Sndstation-Kind: app
 Description: LXR drum machine for sndstation handhelds
  The LXR V2 drum machine's sound engine and sequencer, ported from its
  firmware: seven drum voices and an FX bus, 16 patterns of up to 64 steps
@@ -186,6 +191,9 @@ if printf '%s\n' "$contents" | grep -vE '^\./(usr/(bin/(lxr-sndstation)?|share/(
 fi
 if printf '%s\n' "$contents" | grep -qi jetbrains; then die "$deb names a JetBrains face"; fi
 dpkg-deb -c "$deb" | awk '$NF == "./" && $1 != "drwxr-xr-x" {exit 1}' || die "the archive root is not 0755"
+# Without the kind a unit's SETTINGS, Software packages will not install it
+# from a file or list it as an app from a vendor's source.
+[ "$(dpkg-deb -f "$deb" Sndstation-Kind)" = app ] || die "$deb has no Sndstation-Kind: app"
 
 echo
 echo "$deb"
