@@ -23,6 +23,9 @@ What the plugin has:
 
 There is no plugin window yet. Hosts show their generic parameter editor instead.
 
+The same engine and sequencer also run as an app for sndstation handhelds, with a step
+grid and the handheld's buttons: see [On sndstation handhelds](#on-sndstation-handhelds).
+
 ## Building
 
 You need Git, CMake 3.21 or newer and a C++17 compiler (GCC, Clang, Xcode or Visual
@@ -159,6 +162,63 @@ translation of the codebox.
 The plugins also pass [clap-validator](https://github.com/free-audio/clap-validator)
 (all tests; the skipped ones are for extensions the plugin doesn't have) and the
 VST3 SDK's validator (47 of 47 tests).
+
+## On sndstation handhelds
+
+`sndstation/` is LXR as an app for sndstation, the Linux handheld platform: the same
+`LxrInstrument` as the plugins, with its own screens on the handheld's display, played
+from its buttons, sounding through its audio output and taking notes from any MIDI input.
+
+```
+cmake -S sndstation -B sndstation/build -DSNDSTATION_DIR=/path/to/sndstation
+cmake --build sndstation/build --parallel
+ctest --test-dir sndstation/build
+./sndstation/build/lxr-sndstation
+```
+
+`SNDSTATION_DIR` is a sndstation checkout with its submodules; the platform is built
+from it alongside, as every sndstation app is. It builds on Linux (the handhelds, arm64)
+and on macOS for development. `cmake --install` puts `bin/lxr-sndstation`, its launcher
+entry `share/sndstation/apps/lxr.json` and its typeface in `share/lxr-sndstation/fonts/`.
+
+| Screen | |
+|---|---|
+| SEQ | the seven tracks' steps, a bar of 16 at a time |
+| STEP | the cursor's step (velocity, probability, note, flam, shift, two parameter locks) and its track (length, Euclid generator); copy, paste and clear a track |
+| SOUND | every voice's parameters as knobs, eight to a page, and the FX bus and kit |
+| PATTERN | the 16 patterns: play one next, copy, paste, clear |
+| PROJECT | tempo, shuffle, record, MIDI note input, MIDI out, save, a new session; the audio and MIDI the app found |
+
+| Buttons | |
+|---|---|
+| SELECT + Left/Right | the next or previous screen |
+| D-pad | the cursor |
+| hold A + D-pad | change the value: Left/Right by one, Up/Down by a bigger step |
+| A | on SEQ, a step on; a tap on a step that is on switches it off |
+| B + A | back to the default; on SEQ the step is cleared, on PATTERN the pattern |
+| START | play and stop |
+| X | play the cursor's voice (B + X on the hihats: the open hihat) |
+| Y | mute the cursor's track |
+| L1/R1, L2/R2 | SEQ: bar, pattern. STEP: step, track. SOUND: voice, page |
+| hold FN, or SELECT then START | quit, after a second and a half |
+
+The footer shows the buttons as the handheld prints them. Pasting, clearing a track or a
+pattern and a new session ask for the same button again before they happen.
+
+Everything (sound, patterns, settings) is kept in `~/.config/lxr/session.lxr`, in the
+same format as the plugins' saved state: written every 30 seconds when something has
+changed, from PROJECT's **Save now**, and on quit. `--session FILE` plays and saves
+another file; `--new` starts from the init kit and a demo pattern. The sequencer runs on
+its own clock, and both outputs are mixed into the handheld's one stereo output.
+
+The app's typeface is Open Sans (`sndstation/fonts/`, under the SIL Open Font License).
+It is named for every face the platform draws with, and the app does not start when it
+cannot open those files rather than draw in another face.
+
+The tests drive the app without a screen or a device: the engine bridge (commands, the
+view, saving, a session's round trip, every sound parameter on a page), the buttons
+through to the instrument, every screen drawn headless (`lxr-sndstation --shots DIR`),
+and the refusal to start without Open Sans.
 
 ## License
 

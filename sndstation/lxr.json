@@ -1,0 +1,6 @@
+{
+  "name":        "LXR",
+  "description": "The LXR V2 drum machine: seven voices, FX and its sequencer",
+  "exec":        ["/usr/bin/lxr-sndstation"],
+  "order":       30
+}

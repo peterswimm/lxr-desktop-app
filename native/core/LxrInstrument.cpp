@@ -511,11 +511,11 @@ void LxrInstrument::render(float* mainL, float* mainR, float* auxL, float* auxR,
 }
 
 // ---------------------------------------------------------------- state
-static void putStore(std::ostringstream& o, const char* tag, const cbx::ListStore& st) {
-	for (size_t k = 0; k < st.slots.size(); k++) {
-		o << tag << ' ' << k << ' ' << st.slots[k].size();
+static void putStore(std::ostringstream& o, const char* tag, const std::vector<std::vector<double>>& slots) {
+	for (size_t k = 0; k < slots.size(); k++) {
+		o << tag << ' ' << k << ' ' << slots[k].size();
 		char buf[32];
-		for (double x : st.slots[k]) {
+		for (double x : slots[k]) {
 			snprintf(buf, sizeof buf, " %.17g", x);
 			o << buf;
 		}
@@ -523,19 +523,59 @@ static void putStore(std::ostringstream& o, const char* tag, const cbx::ListStor
 	}
 }
 
-std::string LxrInstrument::saveState() {
+static bool savedParam(const ParamDef& d) {
+	return d.automatable || d.id == kIdEditTrack || d.id == kIdEditStep;
+}
+
+void LxrInstrument::prepareState(StateImage& im) const {
+	size_t n = 0;
+	for (const ParamDef& d : defs_)
+		if (savedParam(d)) n++;
+	im.params.resize(n);
+	auto size = [](std::vector<std::vector<double>>& dst, const cbx::ListStore& src) {
+		dst.resize(src.slots.size());
+		for (auto& s : dst) s.reserve(src.maxSize);
+	};
+	size(im.pat, seq_->PAT);
+	size(im.set, seq_->SETS);
+}
+
+void LxrInstrument::captureState(StateImage& im) const {
+	size_t n = 0;
+	for (size_t i = 0; i < defs_.size() && n < im.params.size(); i++)
+		if (savedParam(defs_[i])) im.params[n++] = {defs_[i].id, values_[i].load(std::memory_order_relaxed)};
+	auto copy = [](std::vector<std::vector<double>>& dst, const cbx::ListStore& src) {
+		for (size_t k = 0; k < dst.size() && k < src.slots.size(); k++)
+			dst[k].assign(src.slots[k].begin(), src.slots[k].end());
+	};
+	copy(im.pat, seq_->PAT);
+	copy(im.set, seq_->SETS);
+	for (int t = 0; t < 7; t++) {
+		im.eu[t][0] = seq_->euLen[t];
+		im.eu[t][1] = seq_->euSteps[t];
+		im.eu[t][2] = seq_->euRot[t];
+	}
+}
+
+std::string LxrInstrument::formatState(const StateImage& im) {
 	std::ostringstream o;
 	o << "LXR 1\n";
 	char buf[64];
-	for (size_t i = 0; i < defs_.size(); i++) {
-		if (!defs_[i].automatable && defs_[i].id != kIdEditTrack && defs_[i].id != kIdEditStep) continue;
-		snprintf(buf, sizeof buf, "p %u %.17g\n", defs_[i].id, values_[i].load(std::memory_order_relaxed));
+	for (const auto& p : im.params) {
+		snprintf(buf, sizeof buf, "p %u %.17g\n", p.first, p.second);
 		o << buf;
 	}
-	putStore(o, "pat", seq_->PAT);
-	putStore(o, "set", seq_->SETS);
-	for (int t = 0; t < 7; t++) o << "eu " << t << ' ' << seq_->euLen[t] << ' ' << seq_->euSteps[t] << ' ' << seq_->euRot[t] << '\n';
+	putStore(o, "pat", im.pat);
+	putStore(o, "set", im.set);
+	for (int t = 0; t < 7; t++) o << "eu " << t << ' ' << im.eu[t][0] << ' ' << im.eu[t][1] << ' ' << im.eu[t][2] << '\n';
 	return o.str();
+}
+
+std::string LxrInstrument::saveState() {
+	StateImage im;
+	prepareState(im);
+	captureState(im);
+	return formatState(im);
 }
 
 bool LxrInstrument::loadState(const std::string& text) {

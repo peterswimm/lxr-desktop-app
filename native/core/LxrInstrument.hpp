@@ -103,6 +103,25 @@ public:
 	std::string saveState();
 	bool loadState(const std::string& s);
 
+	// saveState() in two halves, for a caller whose audio keeps running while it saves:
+	// captureState() copies what saveState() writes into an image, on the audio thread,
+	// without allocating once prepareState() has sized the image; formatState() turns
+	// the image into saveState()'s text, on any thread.
+	struct StateImage {
+		std::vector<std::pair<uint32_t, double>> params;
+		std::vector<std::vector<double>> pat, set;
+		double eu[7][3] = {};
+	};
+	void prepareState(StateImage& im) const;
+	void captureState(StateImage& im) const;
+	static std::string formatState(const StateImage& im);
+
+	// voice triggers so far, per track (sequencer steps and played notes); wraps at 999
+	int triggers(int track) const { return track >= 0 && track < 7 ? static_cast<int>(trigCount_[track]) : 0; }
+	// forget the changes takeChanges() would return, keeping the storage (for a caller
+	// that reads value() instead)
+	void dropChanges() { changes_.clear(); }
+
 	// for tests
 	LxrEngine& engine() { return *engine_; }
 	LxrSeq& seq();

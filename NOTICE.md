@@ -73,3 +73,4 @@ bootloader contains its own copies of the HAL, CMSIS and FatFs files.
 | Flash programming helpers, from an STMicroelectronics example (LwIP IAP) | `Core/Src/flash_if.c`, `Core/Inc/flash_if.h` | STMicroelectronics example code, as stated in the files |
 | FatFs R0.12c (ChaN) | `Middlewares/Third_Party/FatFs/` | FatFs licence (BSD-style, 1 clause) |
 | HD44780 LCD routines, based on the mikrocontroller.net AVR-GCC tutorial | `Core/Src/lcd.c`, `Core/Inc/lcd.h` | as published on mikrocontroller.net |
+| Open Sans Regular and Bold (The Open Sans Project Authors), the sndstation app's typeface, unmodified | `sndstation/fonts/` | SIL Open Font License 1.1, see `OpenSans-OFL.txt` there |
