@@ -182,6 +182,13 @@ from it alongside, as every sndstation app is. It builds on Linux (the handhelds
 and on macOS for development. `cmake --install` puts `bin/lxr-sndstation`, its launcher
 entry `share/sndstation/apps/lxr.json` and its typeface in `share/lxr-sndstation/fonts/`.
 
+For a handheld, package it: `sndstation/packaging/make-deb.sh --sndstation-dir
+/path/to/sndstation` builds, tests and writes `sndstation/dist/lxr-sndstation_<version>_arm64.deb`.
+Run it where sndstation's own releases are built, arm64 Ubuntu 22.04, and the package
+installs on Ubuntu 22.04 and later and Debian bookworm and later, the handhelds' trixie
+included. It needs sndstation 0.15.1 or later on the handheld. Copy it there and install
+it with `sudo apt install ./lxr-sndstation_*_arm64.deb`.
+
 | Screen | |
 |---|---|
 | SEQ | the seven tracks' steps, a bar of 16 at a time |
