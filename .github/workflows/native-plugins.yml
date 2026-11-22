@@ -39,7 +39,8 @@ jobs:
 
   # Linux, on GitHub and on the Forgejo this repository also lives on. There, ubuntu-latest
   # is the node:20-bookworm image, run as root, without CMake or Rust: they are installed
-  # when missing, which on GitHub's image they are not.
+  # when missing, which on GitHub's image they are not. clap-wrapper 0.17 needs CMake 3.27
+  # or newer, and Debian 12 has 3.25, so CMake comes from its backports.
   plugins-linux:
     name: CLAP and VST3 (ubuntu-latest)
     runs-on: ubuntu-latest
@@ -47,16 +48,27 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build tools
         run: |
-          if ! command -v cmake >/dev/null; then
+          need=3.27
+          cmakeVersion() { cmake --version 2>/dev/null | sed -n '1s/^[^0-9]*\([0-9][0-9.]*\).*$/\1/p'; }
+          atLeast() { [ -n "$1" ] && [ "$(printf '%s\n%s\n' "$need" "$1" | sort -V | head -1)" = "$need" ]; }
+          if ! atLeast "$(cmakeVersion)"; then
+            . /etc/os-release
+            if [ "$ID" != debian ]; then
+              echo "CMake $need or newer is needed, and this is $PRETTY_NAME"; exit 1
+            fi
             SUDO=$(command -v sudo || true)
+            echo "deb http://deb.debian.org/debian ${VERSION_CODENAME}-backports main" |
+              $SUDO tee /etc/apt/sources.list.d/backports.list
             $SUDO apt-get update
-            $SUDO apt-get install -y --no-install-recommends cmake g++ make
+            $SUDO apt-get install -y --no-install-recommends -t "${VERSION_CODENAME}-backports" cmake
+            $SUDO apt-get install -y --no-install-recommends g++ make
           fi
+          cmake --version | sed -n 1p
+          atLeast "$(cmakeVersion)" || { echo "still older than CMake $need"; exit 1; }
           if ! command -v cargo >/dev/null; then
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
             echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           fi
-          cmake --version | head -1
       - name: Configure
         run: cmake -S native -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build

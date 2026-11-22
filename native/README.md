@@ -28,8 +28,8 @@ grid and the handheld's buttons: see [On sndstation handhelds](#on-sndstation-ha
 
 ## Building
 
-You need Git, CMake 3.21 or newer and a C++17 compiler (GCC, Clang, Xcode or Visual
-Studio).
+You need Git, CMake 3.27 or newer (clap-wrapper 0.17 needs it) and a C++17 compiler
+(GCC, Clang, Xcode or Visual Studio).
 
 ```
 cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release
